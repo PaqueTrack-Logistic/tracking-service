@@ -1,10 +1,10 @@
-package com.github.camiloperez77.paquetrack;
+package com.github.camiloperez77.trackingservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class PaquetrackApplicationTests {
+class trackingserviceApplicationTests {
 
 	@Test
 	void contextLoads() {
