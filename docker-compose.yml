@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: tracking-postgres
+    environment:
+      POSTGRES_USER: tracking_user
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: tracking_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./src/main/resources/db/migration/init.sql:/docker-entrypoint-initdb.d/create_schema.sql:ro
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: tracking-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  app:
+    profiles:
+      - docker-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tracking-app
+    command: mvn spring-boot:run
+    volumes:
+      - .:/workspace
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - rabbitmq
+
+volumes:
+  postgres-data:
