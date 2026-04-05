@@ -1,0 +1,64 @@
+# =========================
+# Build artifacts (Maven/Java)
+# =========================
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# =========================
+# Logs and temp files
+# =========================
+*.log
+logs/
+*.tmp
+*.swp
+*.swo
+*~
+
+# =========================
+# OS-generated files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE/editor local files
+# =========================
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# =========================
+# Environment/secrets
+# =========================
+.env
+.env.*
+!.env.example
+*.local
+
+# =========================
+# Spring Boot runtime files
+# =========================
+*.pid
+
+# =========================
+# Docker/dev-local overrides
+# =========================
+docker-compose.override.yml
+docker-compose.yml
+Dockerfile.dev
+application-dev.properties
+Dockerfile
+
+# =========================
+# Test and coverage outputs
+# =========================
+coverage/
+site/
+check-infra.sh
+

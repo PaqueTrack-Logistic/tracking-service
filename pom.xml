@@ -28,6 +28,9 @@
 	</scm>
 	<properties>
 		<java.version>22</java.version>
+		<flyway.url>${env.FLYWAY_URL}</flyway.url>
+		<flyway.user>${env.FLYWAY_USER}</flyway.user>
+		<flyway.password>${env.FLYWAY_PASSWORD}</flyway.password>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -120,9 +123,9 @@
 				<artifactId>flyway-maven-plugin</artifactId>
 				<version>9.22.3</version>
 				<configuration>
-					<url>jdbc:postgresql://localhost:5432/tracking_db</url>
-					<user>tracking_user</user>
-					<password>secret</password>
+					<url>${flyway.url}</url>
+					<user>${flyway.user}</user>
+					<password>${flyway.password}</password>
 					<locations>
 						<location>filesystem:src/main/resources/db/migration</location>
 					</locations>
