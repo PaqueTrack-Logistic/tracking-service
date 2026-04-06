@@ -1,0 +1,52 @@
+services:
+  # Main Application Service
+  - type: web
+    name: tracking-service
+    runtime: docker
+    plan: free
+    buildCommand: ""
+    startCommand: ""
+    envVars:
+      # Spring Configuration
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: PORT
+        value: "8080"
+      
+      # Database Configuration
+      - key: SPRING_DATASOURCE_URL
+        value: ${SPRING_DATASOURCE_URL}
+      - key: SPRING_DATASOURCE_USERNAME
+        value: ${SPRING_DATASOURCE_USERNAME}
+      - key: SPRING_DATASOURCE_PASSWORD
+        value: ${SPRING_DATASOURCE_PASSWORD}
+      
+      # Flyway Configuration
+      - key: FLYWAY_URL
+        value: ${SPRING_DATASOURCE_URL}
+      - key: FLYWAY_USER
+        value: ${SPRING_DATASOURCE_USERNAME}
+      - key: FLYWAY_PASSWORD
+        value: ${SPRING_DATASOURCE_PASSWORD}
+      
+      # RabbitMQ Configuration
+      - key: SPRING_RABBITMQ_HOST
+        value: ${SPRING_RABBITMQ_HOST} 
+      - key: SPRING_RABBITMQ_PORT
+        value: ${SPRING_RABBITMQ_PORT}
+      - key: SPRING_RABBITMQ_USERNAME
+        value: ${SPRING_RABBITMQ_USERNAME}
+      - key: SPRING_RABBITMQ_PASSWORD
+        value: ${SPRING_RABBITMQ_PASSWORD}
+      - key: SPRING_RABBITMQ_VHOST
+        value: ${SPRING_RABBITMQ_VHOST}
+      - key: SPRING_RABBITMQ_SSL_ENABLED
+        value: "true"
+    
+    healthCheckPath: /actuator/health
+    dockerfile: Dockerfile
+    dockerContext: ./
+    scaling:
+      maxInstances: 3
+      minInstances: 1
+    disks: []
