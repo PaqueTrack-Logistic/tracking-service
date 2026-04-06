@@ -51,9 +51,7 @@ Thumbs.db
 # =========================
 docker-compose.override.yml
 docker-compose.yml
-Dockerfile.dev
 application-dev.properties
-Dockerfile
 
 # =========================
 # Test and coverage outputs
