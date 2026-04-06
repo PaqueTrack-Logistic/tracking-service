@@ -24,7 +24,8 @@ WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
 # Create non-root user for security
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+RUN if ! id -u appuser >/dev/null 2>&1; then useradd -m appuser; fi \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # Health check
