@@ -28,7 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class TrackingServiceTest {
+class TrackingServiceApplicationTest {
 
     @Mock
     private ShipmentRepositoryPort shipmentRepository;
@@ -72,8 +72,10 @@ class TrackingServiceTest {
         Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.CREATED);
         when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
 
+        LocalDateTime now = LocalDateTime.now();
+
         assertThatThrownBy(() ->
-                trackingService.registerEvent(shipmentId, "DELIVERED", "Warehouse", LocalDateTime.now())
+                trackingService.registerEvent(shipmentId, "DELIVERED", "Warehouse", now)
         ).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Invalid status transition");
     }
@@ -84,8 +86,10 @@ class TrackingServiceTest {
         UUID shipmentId = UUID.randomUUID();
         when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
 
+        LocalDateTime now = LocalDateTime.now();
+
         assertThatThrownBy(() ->
-                trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub", LocalDateTime.now())
+                trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub", now)
         ).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Shipment not found");
     }

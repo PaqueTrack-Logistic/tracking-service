@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class TrackingServiceIdempotencyTest {
+class TrackingServiceApplicationIdempotencyTest {
 
     @Test
     void initializeShipment_ShouldCreateShipment_WhenFirstEventArrives() {
@@ -57,8 +57,10 @@ class TrackingServiceIdempotencyTest {
         TrackingService service = new TrackingService(shipmentRepository, new NoOpTrackingEventRepository(), new NoOpEventPublisher());
 
         service.initializeShipment(UUID.randomUUID(), "TRK-001");
-
-        assertThrows(IllegalStateException.class, () -> service.initializeShipment(UUID.randomUUID(), "TRK-001"));
+        UUID newId = UUID.randomUUID();
+        assertThrows(IllegalStateException.class, () ->
+                service.initializeShipment(newId, "TRK-001")
+        );
     }
 
     private static class InMemoryShipmentRepository implements ShipmentRepositoryPort {
