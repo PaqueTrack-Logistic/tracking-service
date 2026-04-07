@@ -1,0 +1,350 @@
+package com.github.camiloperez77.trackingservice.domain.service;
+
+import com.github.camiloperez77.trackingservice.domain.model.Shipment;
+import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
+import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
+import com.github.camiloperez77.trackingservice.domain.model.TrackingEventNotification;
+import com.github.camiloperez77.trackingservice.domain.ports.out.EventPublisherPort;
+import com.github.camiloperez77.trackingservice.domain.ports.out.ShipmentRepositoryPort;
+import com.github.camiloperez77.trackingservice.domain.ports.out.TrackingEventRepositoryPort;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.dao.DataIntegrityViolationException;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class TrackingServiceTest {
+
+    @Mock
+    private ShipmentRepositoryPort shipmentRepository;
+
+    @Mock
+    private TrackingEventRepositoryPort eventRepository;
+
+    @Mock
+    private EventPublisherPort eventPublisher;
+
+    @InjectMocks
+    private TrackingService trackingService;
+
+    @Test
+    @DisplayName("registerEvent with valid transition creates event and updates shipment")
+    void registerEvent_validTransition_createsEventAndUpdatesShipment() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.CREATED);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LocalDateTime occurredAt = LocalDateTime.now();
+        TrackingEvent result = trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub Central", occurredAt);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getShipmentId()).isEqualTo(shipmentId);
+        assertThat(result.getEventType()).isEqualTo("DISPATCHED");
+        assertThat(result.getStatusBefore()).isEqualTo(ShipmentStatus.CREATED);
+        assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+        assertThat(result.getLocation()).isEqualTo("Hub Central");
+
+        verify(eventRepository).save(any(TrackingEvent.class));
+        verify(shipmentRepository).save(shipment);
+    }
+
+    @Test
+    @DisplayName("CP-04-02: registerEvent with invalid transition throws IllegalStateException")
+    void registerEvent_invalidTransition_throwsIllegalState() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.CREATED);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+
+        assertThatThrownBy(() ->
+                trackingService.registerEvent(shipmentId, "DELIVERED", "Warehouse", LocalDateTime.now())
+        ).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Invalid status transition");
+    }
+
+    @Test
+    @DisplayName("registerEvent with shipment not found throws IllegalArgumentException")
+    void registerEvent_shipmentNotFound_throwsIllegalArgument() {
+        UUID shipmentId = UUID.randomUUID();
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() ->
+                trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub", LocalDateTime.now())
+        ).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Shipment not found");
+    }
+
+    @Test
+    @DisplayName("registerEvent publishes notification")
+    void registerEvent_publishesNotification() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.CREATED);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        LocalDateTime occurredAt = LocalDateTime.now();
+        trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub Central", occurredAt);
+
+        ArgumentCaptor<TrackingEventNotification> captor = ArgumentCaptor.forClass(TrackingEventNotification.class);
+        verify(eventPublisher).publishTrackingEventRecorded(captor.capture());
+
+        TrackingEventNotification notification = captor.getValue();
+        assertThat(notification.shipmentId()).isEqualTo(shipmentId);
+        assertThat(notification.trackingId()).isEqualTo("TRK-001");
+        assertThat(notification.eventType()).isEqualTo("DISPATCHED");
+        assertThat(notification.previousStatus()).isEqualTo("CREATED");
+        assertThat(notification.newStatus()).isEqualTo("IN_TRANSIT");
+        assertThat(notification.occurredAt()).isEqualTo(occurredAt);
+    }
+
+    @Test
+    @DisplayName("CP-04-01: registerEvent DISPATCHED maps to IN_TRANSIT")
+    void registerEvent_DISPATCHED_mapsToIN_TRANSIT() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.CREATED);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TrackingEvent result = trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub", LocalDateTime.now());
+
+        assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+    }
+
+    @Test
+    @DisplayName("registerEvent DELIVERED maps to DELIVERED")
+    void registerEvent_DELIVERED_mapsToDELIVERED() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.OUT_FOR_DELIVERY,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TrackingEvent result = trackingService.registerEvent(shipmentId, "DELIVERED", "Destination", LocalDateTime.now());
+
+        assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.DELIVERED);
+    }
+
+    @Test
+    @DisplayName("registerEvent unknown event type maps to EXCEPTION")
+    void registerEvent_unknownEventType_mapsToEXCEPTION() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.IN_TRANSIT,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TrackingEvent result = trackingService.registerEvent(shipmentId, "UNKNOWN_TYPE", "Somewhere", LocalDateTime.now());
+
+        assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.EXCEPTION);
+    }
+
+    @Test
+    @DisplayName("getHistory returns ordered events")
+    void getHistory_returnsOrderedEvents() {
+        UUID shipmentId = UUID.randomUUID();
+        LocalDateTime time1 = LocalDateTime.now().minusHours(2);
+        LocalDateTime time2 = LocalDateTime.now().minusHours(1);
+        TrackingEvent event1 = new TrackingEvent(UUID.randomUUID(), shipmentId, "DISPATCHED",
+                ShipmentStatus.CREATED, ShipmentStatus.IN_TRANSIT, "Hub A", time1);
+        TrackingEvent event2 = new TrackingEvent(UUID.randomUUID(), shipmentId, "OUT_FOR_DELIVERY",
+                ShipmentStatus.IN_TRANSIT, ShipmentStatus.OUT_FOR_DELIVERY, "Hub B", time2);
+
+        when(eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId))
+                .thenReturn(List.of(event1, event2));
+
+        List<TrackingEvent> history = trackingService.getHistory(shipmentId);
+
+        assertThat(history).hasSize(2);
+        assertThat(history.get(0).getOccurredAt()).isBefore(history.get(1).getOccurredAt());
+    }
+
+    @Test
+    @DisplayName("getHistory for non-existent shipment returns empty list (delegated to repository)")
+    void getHistory_shipmentNotFound_returnsEmptyList() {
+        UUID shipmentId = UUID.randomUUID();
+        when(eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId))
+                .thenReturn(List.of());
+
+        List<TrackingEvent> history = trackingService.getHistory(shipmentId);
+
+        assertThat(history).isEmpty();
+    }
+
+    @Test
+    @DisplayName("getCurrentStatus returns shipment")
+    void getCurrentStatus_returnsShipment() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.IN_TRANSIT);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+
+        Shipment result = trackingService.getCurrentStatus(shipmentId);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(shipmentId);
+        assertThat(result.getStatus()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+    }
+
+    @Test
+    @DisplayName("getCurrentStatus shipment not found throws IllegalArgumentException")
+    void getCurrentStatus_shipmentNotFound_throwsIllegalArgument() {
+        UUID shipmentId = UUID.randomUUID();
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> trackingService.getCurrentStatus(shipmentId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Shipment not found");
+    }
+
+    // --- initializeShipment tests ---
+
+    @Test
+    @DisplayName("initializeShipment creates new shipment when none exists")
+    void initializeShipment_newShipment_savesSuccessfully() {
+        UUID shipmentId = UUID.randomUUID();
+        String trackingId = "TRK-NEW";
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
+        when(shipmentRepository.findByTrackingId(trackingId)).thenReturn(Optional.empty());
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        trackingService.initializeShipment(shipmentId, trackingId);
+
+        verify(shipmentRepository).save(any(Shipment.class));
+    }
+
+    @Test
+    @DisplayName("initializeShipment with duplicate shipmentId and same trackingId is idempotent")
+    void initializeShipment_duplicateWithSameTrackingId_ignored() {
+        UUID shipmentId = UUID.randomUUID();
+        String trackingId = "TRK-DUP";
+        Shipment existing = new Shipment(shipmentId, trackingId, ShipmentStatus.CREATED);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(existing));
+
+        trackingService.initializeShipment(shipmentId, trackingId);
+
+        verify(shipmentRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("initializeShipment with existing shipmentId but different trackingId throws IllegalStateException")
+    void initializeShipment_existingIdDifferentTrackingId_throws() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment existing = new Shipment(shipmentId, "TRK-ORIGINAL", ShipmentStatus.CREATED);
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> trackingService.initializeShipment(shipmentId, "TRK-DIFFERENT"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already exists with trackingId")
+                .hasMessageContaining("TRK-ORIGINAL")
+                .hasMessageContaining("TRK-DIFFERENT");
+    }
+
+    @Test
+    @DisplayName("initializeShipment with trackingId already assigned to another shipment throws IllegalStateException")
+    void initializeShipment_trackingIdAlreadyUsed_throws() {
+        UUID newShipmentId = UUID.randomUUID();
+        UUID existingShipmentId = UUID.randomUUID();
+        String trackingId = "TRK-TAKEN";
+        Shipment existingByTracking = new Shipment(existingShipmentId, trackingId, ShipmentStatus.CREATED);
+
+        when(shipmentRepository.findById(newShipmentId)).thenReturn(Optional.empty());
+        when(shipmentRepository.findByTrackingId(trackingId)).thenReturn(Optional.of(existingByTracking));
+
+        assertThatThrownBy(() -> trackingService.initializeShipment(newShipmentId, trackingId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("already assigned to shipment");
+    }
+
+    @Test
+    @DisplayName("initializeShipment DataIntegrityViolation with concurrent same shipment is idempotent")
+    void initializeShipment_dataIntegrityViolation_concurrentSameShipment_ignored() {
+        UUID shipmentId = UUID.randomUUID();
+        String trackingId = "TRK-CONCURRENT";
+
+        when(shipmentRepository.findById(shipmentId))
+                .thenReturn(Optional.empty())  // first call during initial check
+                .thenReturn(Optional.of(new Shipment(shipmentId, trackingId, ShipmentStatus.CREATED)));  // second call in catch block
+        when(shipmentRepository.findByTrackingId(trackingId)).thenReturn(Optional.empty());
+        when(shipmentRepository.save(any(Shipment.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate key"));
+
+        trackingService.initializeShipment(shipmentId, trackingId);
+
+        verify(shipmentRepository).save(any(Shipment.class));
+    }
+
+    @Test
+    @DisplayName("initializeShipment DataIntegrityViolation with concurrent different shipment throws")
+    void initializeShipment_dataIntegrityViolation_conflicting_throws() {
+        UUID shipmentId = UUID.randomUUID();
+        String trackingId = "TRK-CONFLICT";
+
+        when(shipmentRepository.findById(shipmentId))
+                .thenReturn(Optional.empty())  // first call
+                .thenReturn(Optional.empty());  // second call in catch block - not found by id
+        when(shipmentRepository.findByTrackingId(trackingId))
+                .thenReturn(Optional.empty())  // first call
+                .thenReturn(Optional.empty());  // second call in catch block - not found by tracking either
+        when(shipmentRepository.save(any(Shipment.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate key"));
+
+        assertThatThrownBy(() -> trackingService.initializeShipment(shipmentId, trackingId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Conflicting duplicate");
+    }
+
+    @Test
+    @DisplayName("initializeShipment DataIntegrityViolation with concurrent trackingId match is idempotent")
+    void initializeShipment_dataIntegrityViolation_concurrentByTrackingId_ignored() {
+        UUID shipmentId = UUID.randomUUID();
+        String trackingId = "TRK-TRACKING-CONCURRENT";
+
+        when(shipmentRepository.findById(shipmentId))
+                .thenReturn(Optional.empty())  // first call
+                .thenReturn(Optional.empty());  // second call in catch - not found by id
+        when(shipmentRepository.findByTrackingId(trackingId))
+                .thenReturn(Optional.empty())  // first call
+                .thenReturn(Optional.of(new Shipment(shipmentId, trackingId, ShipmentStatus.CREATED)));  // second call in catch block
+        when(shipmentRepository.save(any(Shipment.class)))
+                .thenThrow(new DataIntegrityViolationException("Duplicate key"));
+
+        trackingService.initializeShipment(shipmentId, trackingId);
+
+        verify(shipmentRepository).save(any(Shipment.class));
+    }
+
+    @Test
+    @DisplayName("registerEvent OUT_FOR_DELIVERY maps to OUT_FOR_DELIVERY status")
+    void registerEvent_OUT_FOR_DELIVERY_mapsToOUT_FOR_DELIVERY() {
+        UUID shipmentId = UUID.randomUUID();
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.IN_TRANSIT,
+                LocalDateTime.now(), LocalDateTime.now());
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
+        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        TrackingEvent result = trackingService.registerEvent(shipmentId, "OUT_FOR_DELIVERY", "Local Hub", LocalDateTime.now());
+
+        assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.OUT_FOR_DELIVERY);
+        assertThat(result.getStatusBefore()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+    }
+}
