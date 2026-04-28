@@ -6,11 +6,10 @@ import com.github.camiloperez77.trackingservice.infrastructure.persistence.entit
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.mapper.TrackingEventMapper;
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.repository.TrackingEventJpaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
-
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
@@ -27,10 +26,8 @@ public class TrackingEventRepositoryAdapter implements TrackingEventRepositoryPo
     }
 
     @Override
-    public List<TrackingEvent> findByShipmentIdOrderByOccurredAtAsc(UUID shipmentId) {
-        List<TrackingEventEntity> entities = jpaRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId);
-        return entities.stream()
-                .map(mapper::toDomain)
-                .collect(Collectors.toList());
+    public Page<TrackingEvent> findByShipmentIdOrderByOccurredAtAsc(UUID shipmentId, Pageable pageable) {
+        Page<TrackingEventEntity> entityPage = jpaRepository.findByShipmentId(shipmentId, pageable);
+        return entityPage.map(mapper::toDomain);
     }
 }

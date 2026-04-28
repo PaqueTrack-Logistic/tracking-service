@@ -1,6 +1,8 @@
 package com.github.camiloperez77.trackingservice.domain.service;
 
 
+import com.github.camiloperez77.trackingservice.domain.exception.ShipmentNotFoundException;
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
 import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
@@ -14,9 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -81,33 +83,37 @@ public class TrackingService implements TrackingUseCase {
 
     @Override
     @Transactional
-    public TrackingEvent registerEvent(UUID shipmentId, String eventType, String location, LocalDateTime occurredAt) {
+    public TrackingEvent registerEvent(UUID shipmentId, EventType eventType, String location, LocalDateTime occurredAt) {
         Shipment shipment = shipmentRepository.findById(shipmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Shipment not found with id: " + shipmentId));
+                .orElseThrow(() -> new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
 
+        log.info("Registering event - shipmentId: {}, eventType: {}, location: {}", shipmentId, eventType, location);
+        
         ShipmentStatus previousStatus = shipment.getStatus();
-        ShipmentStatus newStatus = mapEventTypeToStatus(eventType);
+        ShipmentStatus newStatus = eventType.getTargetStatus(); // ← clave
 
-        // Lógica de transición (valida)
         shipment.updateStatus(newStatus);
 
-        TrackingEvent event = new TrackingEvent(
-                UUID.randomUUID(),
-                shipmentId,
-                eventType,
-                previousStatus,
-                newStatus,
-                location,
-                occurredAt
-        );
+        log.info("Event registered successfully - shipmentId: {}, eventType: {}, status change: {} -> {}", 
+                shipmentId, eventType, previousStatus, newStatus);
+
+        TrackingEvent event = TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(shipmentId)
+                .eventType(eventType)
+                .statusBefore(previousStatus)
+                .statusAfter(newStatus)
+                .location(location)
+                .occurredAt(occurredAt)
+                .build();
         eventRepository.save(event);
         shipmentRepository.save(shipment);
 
-        // Publicar evento
+        // Publicar evento de notificación (se mantiene como estaba, usando strings)
         TrackingEventNotification notification = new TrackingEventNotification(
                 shipmentId,
                 shipment.getTrackingId(),
-                eventType,
+                eventType.name(),   // convertimos a String
                 previousStatus.name(),
                 newStatus.name(),
                 occurredAt
@@ -118,22 +124,23 @@ public class TrackingService implements TrackingUseCase {
     }
 
     @Override
-    public List<TrackingEvent> getHistory(UUID shipmentId) {
-        return eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId);
+    public Page<TrackingEvent> getHistory(UUID shipmentId, Pageable pageable) {
+    return eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId, pageable);
     }
 
     @Override
     public Shipment getCurrentStatus(UUID shipmentId) {
         return shipmentRepository.findById(shipmentId)
-                .orElseThrow(() -> new IllegalArgumentException("Shipment not found with id: " + shipmentId));
+                .orElseThrow(() -> new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
     }
-
-    private ShipmentStatus mapEventTypeToStatus(String eventType) {
-        return switch (eventType.toUpperCase()) {
-            case "DISPATCHED" -> ShipmentStatus.IN_TRANSIT;
-            case "OUT_FOR_DELIVERY" -> ShipmentStatus.OUT_FOR_DELIVERY;
-            case "DELIVERED" -> ShipmentStatus.DELIVERED;
-            default -> ShipmentStatus.EXCEPTION;
-        };
+// Método auxiliar para mantener compatibilidad con el listener y llamadas desde strings
+    public TrackingEvent registerEvent(UUID shipmentId, String eventTypeStr, String location, LocalDateTime occurredAt) {
+        EventType eventType;
+        try {
+            eventType = EventType.valueOf(eventTypeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid event type: " + eventTypeStr);
+        }
+        return registerEvent(shipmentId, eventType, location, occurredAt);
     }
 }

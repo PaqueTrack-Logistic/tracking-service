@@ -14,7 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class TrackingServiceApplicationIdempotencyTest {
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+class TrackingServiceIdempotencyTest {
 
     @Test
     void initializeShipment_ShouldCreateShipment_WhenFirstEventArrives() {
@@ -57,10 +60,8 @@ class TrackingServiceApplicationIdempotencyTest {
         TrackingService service = new TrackingService(shipmentRepository, new NoOpTrackingEventRepository(), new NoOpEventPublisher());
 
         service.initializeShipment(UUID.randomUUID(), "TRK-001");
-        UUID newId = UUID.randomUUID();
-        assertThrows(IllegalStateException.class, () ->
-                service.initializeShipment(newId, "TRK-001")
-        );
+
+        assertThrows(IllegalStateException.class, () -> service.initializeShipment(UUID.randomUUID(), "TRK-001"));
     }
 
     private static class InMemoryShipmentRepository implements ShipmentRepositoryPort {
@@ -85,15 +86,15 @@ class TrackingServiceApplicationIdempotencyTest {
         }
     }
 
-    private static class NoOpTrackingEventRepository implements TrackingEventRepositoryPort {
-        @Override
+    private static class NoOpTrackingEventRepository implements TrackingEventRepositoryPort { @Override
         public TrackingEvent save(TrackingEvent event) {
             return event;
         }
 
         @Override
-        public List<TrackingEvent> findByShipmentIdOrderByOccurredAtAsc(UUID shipmentId) {
-            return Collections.emptyList();
+        public Page<TrackingEvent> findByShipmentIdOrderByOccurredAtAsc(UUID shipmentId, Pageable pageable) {
+            // Retorna una página vacía (sin datos, sin contenido)
+            return Page.empty(pageable);
         }
     }
 
