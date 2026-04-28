@@ -9,14 +9,15 @@ public enum ShipmentStatus {
     EXCEPTION;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
-        if (this == nextStatus && this != DELIVERED) {
-            return true; // permite auto-transición (mismo estado)
+        // No permitir auto-transición (mismo estado)
+        if (this == nextStatus) {
+            return false;
         }
         switch (this) {
             case CREATED:
                 return nextStatus == IN_TRANSIT || nextStatus == AT_TRANSIT_POINT;
             case IN_TRANSIT:
-                return nextStatus == AT_TRANSIT_POINT || nextStatus == EXCEPTION;
+                return nextStatus == AT_TRANSIT_POINT || nextStatus == OUT_FOR_DELIVERY || nextStatus == EXCEPTION;
             case AT_TRANSIT_POINT:
                 return nextStatus == IN_TRANSIT || nextStatus == OUT_FOR_DELIVERY || nextStatus == EXCEPTION;
             case OUT_FOR_DELIVERY:

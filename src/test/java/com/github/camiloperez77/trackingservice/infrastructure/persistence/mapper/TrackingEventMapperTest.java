@@ -1,5 +1,6 @@
 package com.github.camiloperez77.trackingservice.infrastructure.persistence.mapper;
 
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.entity.TrackingEventEntity;
@@ -26,7 +27,7 @@ class TrackingEventMapperTest {
         TrackingEventEntity entity = new TrackingEventEntity();
         entity.setId(id);
         entity.setShipmentId(shipmentId);
-        entity.setEventType("DISPATCHED");
+        entity.setEventType(EventType.DISPATCHED);
         entity.setStatusBefore("CREATED");
         entity.setStatusAfter("IN_TRANSIT");
         entity.setLocation("Hub Central");
@@ -37,7 +38,7 @@ class TrackingEventMapperTest {
 
         assertThat(domain.getId()).isEqualTo(id);
         assertThat(domain.getShipmentId()).isEqualTo(shipmentId);
-        assertThat(domain.getEventType()).isEqualTo("DISPATCHED");
+        assertThat(domain.getEventType()).isEqualTo(EventType.DISPATCHED);
         assertThat(domain.getStatusBefore()).isEqualTo(ShipmentStatus.CREATED);
         assertThat(domain.getStatusAfter()).isEqualTo(ShipmentStatus.IN_TRANSIT);
         assertThat(domain.getLocation()).isEqualTo("Hub Central");
@@ -53,15 +54,22 @@ class TrackingEventMapperTest {
         LocalDateTime occurredAt = LocalDateTime.now().minusHours(1);
         LocalDateTime createdAt = LocalDateTime.now();
 
-        TrackingEvent domain = new TrackingEvent(id, shipmentId, "DELIVERED",
-                ShipmentStatus.OUT_FOR_DELIVERY, ShipmentStatus.DELIVERED,
-                "Destination", occurredAt, createdAt);
+        TrackingEvent domain = TrackingEvent.builder()
+                .id(id)
+                .shipmentId(shipmentId)
+                .eventType(EventType.DELIVERED)
+                .statusBefore(ShipmentStatus.OUT_FOR_DELIVERY)
+                .statusAfter(ShipmentStatus.DELIVERED)
+                .location("Destination")
+                .occurredAt(occurredAt)
+                .createdAt(createdAt)
+                .build();
 
         TrackingEventEntity entity = mapper.toEntity(domain);
 
         assertThat(entity.getId()).isEqualTo(id);
         assertThat(entity.getShipmentId()).isEqualTo(shipmentId);
-        assertThat(entity.getEventType()).isEqualTo("DELIVERED");
+        assertThat(entity.getEventType()).isEqualTo(EventType.DELIVERED);
         assertThat(entity.getStatusBefore()).isEqualTo("OUT_FOR_DELIVERY");
         assertThat(entity.getStatusAfter()).isEqualTo("DELIVERED");
         assertThat(entity.getLocation()).isEqualTo("Destination");
@@ -75,7 +83,7 @@ class TrackingEventMapperTest {
         TrackingEventEntity entity = new TrackingEventEntity();
         entity.setId(UUID.randomUUID());
         entity.setShipmentId(UUID.randomUUID());
-        entity.setEventType("DISPATCHED");
+        entity.setEventType(EventType.DISPATCHED);
         entity.setStatusBefore(null);
         entity.setStatusAfter("IN_TRANSIT");
         entity.setLocation("Hub");
@@ -94,7 +102,7 @@ class TrackingEventMapperTest {
         TrackingEventEntity entity = new TrackingEventEntity();
         entity.setId(UUID.randomUUID());
         entity.setShipmentId(UUID.randomUUID());
-        entity.setEventType("UNKNOWN");
+        entity.setEventType(EventType.DAMAGED);
         entity.setStatusBefore("CREATED");
         entity.setStatusAfter(null);
         entity.setLocation("Hub");
@@ -110,8 +118,16 @@ class TrackingEventMapperTest {
     @Test
     @DisplayName("toEntity handles null statusBefore")
     void toEntity_nullStatusBefore_shouldMapToNull() {
-        TrackingEvent domain = new TrackingEvent(UUID.randomUUID(), UUID.randomUUID(), "DISPATCHED",
-                null, ShipmentStatus.IN_TRANSIT, "Hub", LocalDateTime.now(), LocalDateTime.now());
+        TrackingEvent domain = TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(UUID.randomUUID())
+                .eventType(EventType.DISPATCHED)
+                .statusBefore(null)
+                .statusAfter(ShipmentStatus.IN_TRANSIT)
+                .location("Hub")
+                .occurredAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
+                .build();
 
         TrackingEventEntity entity = mapper.toEntity(domain);
 
@@ -122,8 +138,16 @@ class TrackingEventMapperTest {
     @Test
     @DisplayName("toEntity handles null statusAfter")
     void toEntity_nullStatusAfter_shouldMapToNull() {
-        TrackingEvent domain = new TrackingEvent(UUID.randomUUID(), UUID.randomUUID(), "UNKNOWN",
-                ShipmentStatus.CREATED, null, "Hub", LocalDateTime.now(), LocalDateTime.now());
+        TrackingEvent domain = TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(UUID.randomUUID())
+                .eventType(EventType.DAMAGED)
+                .statusBefore(ShipmentStatus.CREATED)
+                .statusAfter(null)
+                .location("Hub")
+                .occurredAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
+                .build();
 
         TrackingEventEntity entity = mapper.toEntity(domain);
 
@@ -139,9 +163,16 @@ class TrackingEventMapperTest {
         LocalDateTime occurredAt = LocalDateTime.now().minusHours(1);
         LocalDateTime createdAt = LocalDateTime.now();
 
-        TrackingEvent original = new TrackingEvent(id, shipmentId, "OUT_FOR_DELIVERY",
-                ShipmentStatus.IN_TRANSIT, ShipmentStatus.OUT_FOR_DELIVERY,
-                "Distribution Center", occurredAt, createdAt);
+        TrackingEvent original = TrackingEvent.builder()
+                .id(id)
+                .shipmentId(shipmentId)
+                .eventType(EventType.OUT_FOR_DELIVERY)
+                .statusBefore(ShipmentStatus.IN_TRANSIT)
+                .statusAfter(ShipmentStatus.OUT_FOR_DELIVERY)
+                .location("Distribution Center")
+                .occurredAt(occurredAt)
+                .createdAt(createdAt)
+                .build();
 
         TrackingEvent result = mapper.toDomain(mapper.toEntity(original));
 

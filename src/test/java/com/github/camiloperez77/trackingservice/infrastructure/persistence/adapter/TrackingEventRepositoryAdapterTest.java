@@ -1,8 +1,13 @@
 package com.github.camiloperez77.trackingservice.infrastructure.persistence.adapter;
 
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.entity.TrackingEventEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.mapper.TrackingEventMapper;
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.repository.TrackingEventJpaRepository;
 import org.junit.jupiter.api.Test;
@@ -37,18 +42,23 @@ class TrackingEventRepositoryAdapterTest {
     private final LocalDateTime createdAt = LocalDateTime.of(2026, 4, 7, 10, 0, 1);
 
     private TrackingEvent buildDomainEvent() {
-        return new TrackingEvent(
-                eventId, shipmentId, "STATUS_CHANGE",
-                ShipmentStatus.CREATED, ShipmentStatus.IN_TRANSIT,
-                "Bogota", occurredAt, createdAt
-        );
+        return TrackingEvent.builder()
+                .id(eventId)
+                .shipmentId(shipmentId)
+                .eventType(EventType.DISPATCHED)
+                .statusBefore(ShipmentStatus.CREATED)
+                .statusAfter(ShipmentStatus.IN_TRANSIT)
+                .location("Bogota")
+                .occurredAt(occurredAt)
+                .createdAt(createdAt)
+                .build();
     }
 
     private TrackingEventEntity buildEntity() {
         TrackingEventEntity entity = new TrackingEventEntity();
         entity.setId(eventId);
         entity.setShipmentId(shipmentId);
-        entity.setEventType("STATUS_CHANGE");
+        entity.setEventType(EventType.DISPATCHED);
         entity.setStatusBefore("CREATED");
         entity.setStatusAfter("IN_TRANSIT");
         entity.setLocation("Bogota");
@@ -77,7 +87,7 @@ class TrackingEventRepositoryAdapterTest {
     }
 
     @Test
-    void findByShipmentIdOrderByOccurredAtAsc_shouldReturnMappedList() {
+    void findByShipmentIdOrderByOccurredAtAsc_shouldReturnMappedPage() {
         TrackingEventEntity entity1 = buildEntity();
         TrackingEventEntity entity2 = buildEntity();
         entity2.setId(UUID.randomUUID());
@@ -85,15 +95,16 @@ class TrackingEventRepositoryAdapterTest {
         TrackingEvent domain1 = buildDomainEvent();
         TrackingEvent domain2 = buildDomainEvent();
 
-        when(jpaRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId))
-                .thenReturn(List.of(entity1, entity2));
+        Pageable pageable = PageRequest.of(0, 10);
+        when(jpaRepository.findByShipmentId(shipmentId, pageable))
+                .thenReturn(new PageImpl<>(List.of(entity1, entity2), pageable, 2));
         when(mapper.toDomain(entity1)).thenReturn(domain1);
         when(mapper.toDomain(entity2)).thenReturn(domain2);
 
-        List<TrackingEvent> result = adapter.findByShipmentIdOrderByOccurredAtAsc(shipmentId);
+        Page<TrackingEvent> result = adapter.findByShipmentIdOrderByOccurredAtAsc(shipmentId, pageable);
 
-        assertThat(result).hasSize(2).containsExactly(domain1, domain2);
-        verify(jpaRepository).findByShipmentIdOrderByOccurredAtAsc(shipmentId);
+        assertThat(result.getContent()).hasSize(2).containsExactly(domain1, domain2);
+        verify(jpaRepository).findByShipmentId(shipmentId, pageable);
         verify(mapper).toDomain(entity1);
         verify(mapper).toDomain(entity2);
     }

@@ -1,9 +1,15 @@
 package com.github.camiloperez77.trackingservice.domain.service;
 
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
 import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEventNotification;
+import com.github.camiloperez77.trackingservice.domain.exception.ShipmentNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.github.camiloperez77.trackingservice.domain.ports.out.EventPublisherPort;
 import com.github.camiloperez77.trackingservice.domain.ports.out.ShipmentRepositoryPort;
 import com.github.camiloperez77.trackingservice.domain.ports.out.TrackingEventRepositoryPort;
@@ -56,7 +62,7 @@ class TrackingServiceApplicationTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getShipmentId()).isEqualTo(shipmentId);
-        assertThat(result.getEventType()).isEqualTo("DISPATCHED");
+        assertThat(result.getEventType()).isEqualTo(EventType.DISPATCHED);
         assertThat(result.getStatusBefore()).isEqualTo(ShipmentStatus.CREATED);
         assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.IN_TRANSIT);
         assertThat(result.getLocation()).isEqualTo("Hub Central");
@@ -81,8 +87,8 @@ class TrackingServiceApplicationTest {
     }
 
     @Test
-    @DisplayName("registerEvent with shipment not found throws IllegalArgumentException")
-    void registerEvent_shipmentNotFound_throwsIllegalArgument() {
+    @DisplayName("registerEvent with shipment not found throws ShipmentNotFoundException")
+    void registerEvent_shipmentNotFound_throwsShipmentNotFound() {
         UUID shipmentId = UUID.randomUUID();
         when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
 
@@ -90,8 +96,7 @@ class TrackingServiceApplicationTest {
 
         assertThatThrownBy(() ->
                 trackingService.registerEvent(shipmentId, "DISPATCHED", "Hub", now)
-        ).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Shipment not found");
+        ).isInstanceOf(ShipmentNotFoundException.class);
     }
 
     @Test
@@ -148,18 +153,13 @@ class TrackingServiceApplicationTest {
     }
 
     @Test
-    @DisplayName("registerEvent unknown event type maps to EXCEPTION")
-    void registerEvent_unknownEventType_mapsToEXCEPTION() {
+    @DisplayName("registerEvent unknown event type throws IllegalArgumentException")
+    void registerEvent_unknownEventType_throwsIllegalArgument() {
         UUID shipmentId = UUID.randomUUID();
-        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.IN_TRANSIT,
-                LocalDateTime.now(), LocalDateTime.now());
-        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
-        when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(shipmentRepository.save(any(Shipment.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        TrackingEvent result = trackingService.registerEvent(shipmentId, "UNKNOWN_TYPE", "Somewhere", LocalDateTime.now());
-
-        assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.EXCEPTION);
+        assertThatThrownBy(() -> trackingService.registerEvent(shipmentId, "UNKNOWN_TYPE", "Somewhere", LocalDateTime.now()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Invalid event type");
     }
 
     @Test
@@ -168,30 +168,46 @@ class TrackingServiceApplicationTest {
         UUID shipmentId = UUID.randomUUID();
         LocalDateTime time1 = LocalDateTime.now().minusHours(2);
         LocalDateTime time2 = LocalDateTime.now().minusHours(1);
-        TrackingEvent event1 = new TrackingEvent(UUID.randomUUID(), shipmentId, "DISPATCHED",
-                ShipmentStatus.CREATED, ShipmentStatus.IN_TRANSIT, "Hub A", time1);
-        TrackingEvent event2 = new TrackingEvent(UUID.randomUUID(), shipmentId, "OUT_FOR_DELIVERY",
-                ShipmentStatus.IN_TRANSIT, ShipmentStatus.OUT_FOR_DELIVERY, "Hub B", time2);
+        TrackingEvent event1 = TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(shipmentId)
+                .eventType(EventType.DISPATCHED)
+                .statusBefore(ShipmentStatus.CREATED)
+                .statusAfter(ShipmentStatus.IN_TRANSIT)
+                .location("Hub A")
+                .occurredAt(time1)
+                .build();
+        TrackingEvent event2 = TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(shipmentId)
+                .eventType(EventType.OUT_FOR_DELIVERY)
+                .statusBefore(ShipmentStatus.IN_TRANSIT)
+                .statusAfter(ShipmentStatus.OUT_FOR_DELIVERY)
+                .location("Hub B")
+                .occurredAt(time2)
+                .build();
 
-        when(eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId))
-                .thenReturn(List.of(event1, event2));
+        Pageable pageable = PageRequest.of(0, 10);
+        when(eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId, pageable))
+                .thenReturn(new PageImpl<>(List.of(event1, event2), pageable, 2));
 
-        List<TrackingEvent> history = trackingService.getHistory(shipmentId);
+        Page<TrackingEvent> history = trackingService.getHistory(shipmentId, pageable);
 
-        assertThat(history).hasSize(2);
-        assertThat(history.get(0).getOccurredAt()).isBefore(history.get(1).getOccurredAt());
+        assertThat(history.getContent()).hasSize(2);
+        assertThat(history.getContent().get(0).getOccurredAt()).isBefore(history.getContent().get(1).getOccurredAt());
     }
 
     @Test
     @DisplayName("getHistory for non-existent shipment returns empty list (delegated to repository)")
     void getHistory_shipmentNotFound_returnsEmptyList() {
         UUID shipmentId = UUID.randomUUID();
-        when(eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId))
-                .thenReturn(List.of());
+        Pageable pageable = PageRequest.of(0, 10);
+        when(eventRepository.findByShipmentIdOrderByOccurredAtAsc(shipmentId, pageable))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        List<TrackingEvent> history = trackingService.getHistory(shipmentId);
+        Page<TrackingEvent> history = trackingService.getHistory(shipmentId, pageable);
 
-        assertThat(history).isEmpty();
+        assertThat(history.getContent()).isEmpty();
     }
 
     @Test
@@ -209,14 +225,13 @@ class TrackingServiceApplicationTest {
     }
 
     @Test
-    @DisplayName("getCurrentStatus shipment not found throws IllegalArgumentException")
-    void getCurrentStatus_shipmentNotFound_throwsIllegalArgument() {
+    @DisplayName("getCurrentStatus with shipment not found throws ShipmentNotFoundException")
+    void getCurrentStatus_shipmentNotFound_throwsShipmentNotFound() {
         UUID shipmentId = UUID.randomUUID();
         when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> trackingService.getCurrentStatus(shipmentId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Shipment not found");
+                .isInstanceOf(ShipmentNotFoundException.class);
     }
 
     // --- initializeShipment tests ---
@@ -340,7 +355,8 @@ class TrackingServiceApplicationTest {
     @DisplayName("registerEvent OUT_FOR_DELIVERY maps to OUT_FOR_DELIVERY status")
     void registerEvent_OUT_FOR_DELIVERY_mapsToOUT_FOR_DELIVERY() {
         UUID shipmentId = UUID.randomUUID();
-        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.IN_TRANSIT,
+        // Usar AT_TRANSIT_POINT como estado anterior (válido para transicionar a OUT_FOR_DELIVERY)
+        Shipment shipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.AT_TRANSIT_POINT,
                 LocalDateTime.now(), LocalDateTime.now());
         when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(shipment));
         when(eventRepository.save(any(TrackingEvent.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -349,6 +365,6 @@ class TrackingServiceApplicationTest {
         TrackingEvent result = trackingService.registerEvent(shipmentId, "OUT_FOR_DELIVERY", "Local Hub", LocalDateTime.now());
 
         assertThat(result.getStatusAfter()).isEqualTo(ShipmentStatus.OUT_FOR_DELIVERY);
-        assertThat(result.getStatusBefore()).isEqualTo(ShipmentStatus.IN_TRANSIT);
+        assertThat(result.getStatusBefore()).isEqualTo(ShipmentStatus.AT_TRANSIT_POINT);
     }
 }
