@@ -37,9 +37,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(errors);
     }
 
-    // 4. (Opcional) Manejador para IllegalArgumentException - si se usa en algún lugar
+    // 4. Manejador para IllegalArgumentException - si se usa para shipment no encontrado
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        // Detectar si es un error de shipment no encontrado
+        if (ex.getMessage() != null && ex.getMessage().contains("Shipment not found")) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("SHIPMENT_NOT_FOUND", ex.getMessage(), LocalDateTime.now()));
+        }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse("BAD_REQUEST", ex.getMessage(), LocalDateTime.now()));
     }

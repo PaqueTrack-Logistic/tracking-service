@@ -1,8 +1,15 @@
 package com.github.camiloperez77.trackingservice.application.rest;
 
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
 import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
+import com.github.camiloperez77.trackingservice.domain.exception.ShipmentNotFoundException;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import com.github.camiloperez77.trackingservice.domain.ports.in.TrackingUseCase;
 import com.github.camiloperez77.trackingservice.infrastructure.messaging.config.RabbitMQConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,8 +30,6 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
 import org.springframework.amqp.core.MessagePostProcessor;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -81,33 +86,39 @@ class TrackingControllerTest {
         UUID shipmentId = UUID.randomUUID();
         LocalDateTime occurredAt = LocalDateTime.of(2026, 4, 7, 10, 0, 0);
 
-        TrackingEvent event = new TrackingEvent(
-                UUID.randomUUID(), shipmentId, "DISPATCHED",
-                ShipmentStatus.CREATED, ShipmentStatus.IN_TRANSIT,
-                "Hub Central", occurredAt, LocalDateTime.now()
-        );
+        TrackingEvent event = TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(shipmentId)
+                .eventType(EventType.DISPATCHED)
+                .statusBefore(ShipmentStatus.CREATED)
+                .statusAfter(ShipmentStatus.IN_TRANSIT)
+                .location("Hub Central")
+                .occurredAt(occurredAt)
+                .createdAt(LocalDateTime.now())
+                .build();
 
-        when(trackingUseCase.getHistory(shipmentId)).thenReturn(List.of(event));
+        when(trackingUseCase.getHistory(eq(shipmentId), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(event), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/v1/tracking/{shipmentId}/history", shipmentId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].eventType").value("DISPATCHED"))
-                .andExpect(jsonPath("$[0].statusBefore").value("CREATED"))
-                .andExpect(jsonPath("$[0].statusAfter").value("IN_TRANSIT"))
-                .andExpect(jsonPath("$[0].location").value("Hub Central"));
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].eventType").value("DISPATCHED"))
+                .andExpect(jsonPath("$.content[0].statusBefore").value("CREATED"))
+                .andExpect(jsonPath("$.content[0].statusAfter").value("IN_TRANSIT"))
+                .andExpect(jsonPath("$.content[0].location").value("Hub Central"));
     }
 
     @Test
     @DisplayName("GET /{shipmentId}/history returns 404 when shipment not found")
     void getHistory_shipmentNotFound_shouldReturn404() throws Exception {
         UUID shipmentId = UUID.randomUUID();
-        when(trackingUseCase.getHistory(shipmentId))
-                .thenThrow(new IllegalArgumentException("Shipment not found with id: " + shipmentId));
+        when(trackingUseCase.getHistory(eq(shipmentId), any(Pageable.class)))
+                .thenThrow(new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
 
         mockMvc.perform(get("/api/v1/tracking/{shipmentId}/history", shipmentId))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+                .andExpect(jsonPath("$.code").value("SHIPMENT_NOT_FOUND"));
     }
 
     @Test
@@ -127,10 +138,10 @@ class TrackingControllerTest {
     void getCurrentStatus_shipmentNotFound_shouldReturn404() throws Exception {
         UUID shipmentId = UUID.randomUUID();
         when(trackingUseCase.getCurrentStatus(shipmentId))
-                .thenThrow(new IllegalArgumentException("Shipment not found with id: " + shipmentId));
+                .thenThrow(new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
 
         mockMvc.perform(get("/api/v1/tracking/{shipmentId}/current", shipmentId))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+                .andExpect(jsonPath("$.code").value("SHIPMENT_NOT_FOUND"));
     }
 }

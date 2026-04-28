@@ -38,11 +38,11 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("IllegalArgumentException returns 404 NOT_FOUND")
+    @DisplayName("IllegalArgumentException returns 404 SHIPMENT_NOT_FOUND")
     void handleIllegalArgument_returns404() throws Exception {
         mockMvc.perform(get("/fake/not-found"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+                .andExpect(jsonPath("$.code").value("SHIPMENT_NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("Shipment not found with id: abc-123"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
