@@ -50,5 +50,5 @@ public class GlobalExceptionHandler {
     }
 
     // Record para respuesta de error unificada (excepto validación de campos)
-    record ErrorResponse(String code, String message, LocalDateTime timestamp) {}
+    static record ErrorResponse(String code, String message, LocalDateTime timestamp) {}
 }

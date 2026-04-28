@@ -1,5 +1,6 @@
 package com.github.camiloperez77.trackingservice.domain.model;
 
+@SuppressWarnings("fallthrough")
 public enum ShipmentStatus {
     CREATED,
     IN_TRANSIT,           // en movimiento entre centros
