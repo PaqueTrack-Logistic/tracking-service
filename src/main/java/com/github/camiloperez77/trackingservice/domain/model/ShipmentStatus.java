@@ -2,23 +2,29 @@ package com.github.camiloperez77.trackingservice.domain.model;
 
 public enum ShipmentStatus {
     CREATED,
-    IN_TRANSIT,
+    IN_TRANSIT,           // en movimiento entre centros
+    AT_TRANSIT_POINT,     // detenido en un centro logístico (hub, terminal, puerto)
     OUT_FOR_DELIVERY,
     DELIVERED,
     EXCEPTION;
 
     public boolean canTransitionTo(ShipmentStatus nextStatus) {
+        if (this == nextStatus && this != DELIVERED) {
+            return true; // permite auto-transición (mismo estado)
+        }
         switch (this) {
             case CREATED:
-                return nextStatus == IN_TRANSIT;
+                return nextStatus == IN_TRANSIT || nextStatus == AT_TRANSIT_POINT;
             case IN_TRANSIT:
-                return nextStatus == OUT_FOR_DELIVERY || nextStatus == EXCEPTION;
+                return nextStatus == AT_TRANSIT_POINT || nextStatus == EXCEPTION;
+            case AT_TRANSIT_POINT:
+                return nextStatus == IN_TRANSIT || nextStatus == OUT_FOR_DELIVERY || nextStatus == EXCEPTION;
             case OUT_FOR_DELIVERY:
                 return nextStatus == DELIVERED || nextStatus == EXCEPTION;
             case DELIVERED:
-                return false; // terminal
+                return false;
             case EXCEPTION:
-                return nextStatus == CREATED || nextStatus == IN_TRANSIT;
+                return nextStatus == CREATED || nextStatus == IN_TRANSIT || nextStatus == AT_TRANSIT_POINT;
             default:
                 return false;
         }

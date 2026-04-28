@@ -12,7 +12,7 @@ public class TrackingEventMapper {
         TrackingEventEntity entity = new TrackingEventEntity();
         entity.setId(domain.getId());
         entity.setShipmentId(domain.getShipmentId());
-        entity.setEventType(domain.getEventType());
+        entity.setEventType(domain.getEventType()); // ahora es EventType, no String
         entity.setStatusBefore(domain.getStatusBefore() != null ? domain.getStatusBefore().name() : null);
         entity.setStatusAfter(domain.getStatusAfter() != null ? domain.getStatusAfter().name() : null);
         entity.setLocation(domain.getLocation());
@@ -22,15 +22,15 @@ public class TrackingEventMapper {
     }
 
     public TrackingEvent toDomain(TrackingEventEntity entity) {
-        return new TrackingEvent(
-                entity.getId(),
-                entity.getShipmentId(),
-                entity.getEventType(),
-                entity.getStatusBefore() != null ? ShipmentStatus.valueOf(entity.getStatusBefore()) : null,
-                entity.getStatusAfter() != null ? ShipmentStatus.valueOf(entity.getStatusAfter()) : null,
-                entity.getLocation(),
-                entity.getOccurredAt(),
-                entity.getCreatedAt()
-        );
+        return TrackingEvent.builder()
+                .id(entity.getId())
+                .shipmentId(entity.getShipmentId())
+                .eventType(entity.getEventType()) // directo
+                .statusBefore(entity.getStatusBefore() != null ? ShipmentStatus.valueOf(entity.getStatusBefore()) : null)
+                .statusAfter(entity.getStatusAfter() != null ? ShipmentStatus.valueOf(entity.getStatusAfter()) : null)
+                .location(entity.getLocation())
+                .occurredAt(entity.getOccurredAt())
+                .createdAt(entity.getCreatedAt())
+                .build();
     }
 }

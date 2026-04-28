@@ -1,5 +1,5 @@
 package com.github.camiloperez77.trackingservice.infrastructure.persistence.entity;
-
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,7 +14,10 @@ public class TrackingEventEntity {
     @Id
     private UUID id;
     private UUID shipmentId;
-    private String eventType;
+    
+    @Enumerated(EnumType.STRING)
+    private EventType eventType;
+
     private String statusBefore;
     private String statusAfter;
     private String location;
