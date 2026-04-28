@@ -33,5 +33,12 @@ public class RabbitMQEventPublisher implements EventPublisherPort {
                 "tracking.event.recorded",
                 event
         );
+
+        log.info("Publishing tracking.status.updated: {}", event);
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.LOGISTICS_EXCHANGE,
+                "tracking.status.updated",
+                event
+        );
     }
 }

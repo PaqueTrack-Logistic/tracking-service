@@ -12,6 +12,7 @@ public class RabbitMQConfig {
     public static final String LOGISTICS_EXCHANGE = "logistics.exchange";
     public static final String SHIPMENT_CREATED_QUEUE = "tracking.shipment.created.queue";
     public static final String TRACKING_EVENT_RECORDED_QUEUE = "tracking.event.recorded.queue";
+    public static final String SHIPMENT_STATUS_QUEUE = "shipment.status.queue";
     public static final String TRACKING_EVENT_REQUEST_QUEUE = "tracking.event.request.queue";
     public static final String TRACKING_EVENT_REQUEST_DLX = "tracking.event.request.dlx";
     public static final String TRACKING_EVENT_REQUEST_DLQ = "tracking.event.request.dlq";
@@ -44,6 +45,18 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(trackingEventRecordedQueue())
                 .to(logisticsExchange())
                 .with("tracking.event.recorded");
+    }
+
+    @Bean
+    public Queue shipmentStatusQueue() {
+        return new Queue(SHIPMENT_STATUS_QUEUE, true);
+    }
+
+    @Bean
+    public Binding shipmentStatusBinding() {
+        return BindingBuilder.bind(shipmentStatusQueue())
+                .to(logisticsExchange())
+                .with("tracking.status.updated");
     }
 
     @Bean
