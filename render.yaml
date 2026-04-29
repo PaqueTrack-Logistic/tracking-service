@@ -10,7 +10,7 @@ services:
       # Spring Configuration
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: PORT_SERVER
+      - key: PORT
         value: "8080"
       
       # Database Configuration
