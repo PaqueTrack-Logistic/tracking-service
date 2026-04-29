@@ -10,7 +10,7 @@ services:
       # Spring Configuration
       - key: SPRING_PROFILES_ACTIVE
         value: prod
-      - key: PORT
+      - key: PORT_SERVER
         value: "8080"
       
       # Database Configuration
@@ -21,17 +21,9 @@ services:
       - key: SPRING_DATASOURCE_PASSWORD
         value: ${SPRING_DATASOURCE_PASSWORD}
       
-      # Flyway Configuration
-      - key: FLYWAY_URL
-        value: ${SPRING_DATASOURCE_URL}
-      - key: FLYWAY_USER
-        value: ${SPRING_DATASOURCE_USERNAME}
-      - key: FLYWAY_PASSWORD
-        value: ${SPRING_DATASOURCE_PASSWORD}
-      
       # RabbitMQ Configuration
       - key: SPRING_RABBITMQ_HOST
-        value: ${SPRING_RABBITMQ_HOST} 
+        value: ${SPRING_RABBITMQ_HOST}
       - key: SPRING_RABBITMQ_PORT
         value: ${SPRING_RABBITMQ_PORT}
       - key: SPRING_RABBITMQ_USERNAME
@@ -41,7 +33,7 @@ services:
       - key: SPRING_RABBITMQ_VHOST
         value: ${SPRING_RABBITMQ_VHOST}
       - key: SPRING_RABBITMQ_SSL_ENABLED
-        value: "true"
+        value: ${SPRING_RABBITMQ_SSL_ENABLED}
     
     healthCheckPath: /actuator/health
     dockerfile: Dockerfile
