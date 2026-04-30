@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/eventTypes")
+@RequestMapping("/api/v1/tracking/eventTypes")
 @RequiredArgsConstructor
 @Tag(name = "EventType", description = "Catálogo de tipos de eventos")
 public class EventTypeController {
