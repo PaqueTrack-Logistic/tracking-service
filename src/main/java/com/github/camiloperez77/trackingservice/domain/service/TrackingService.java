@@ -84,6 +84,10 @@ public class TrackingService implements TrackingUseCase {
     @Override
     @Transactional
     public TrackingEvent registerEvent(UUID shipmentId, EventType eventType, String location, LocalDateTime occurredAt) {
+        return registerEventInternal(shipmentId, eventType, location, occurredAt);
+    }
+
+    private TrackingEvent registerEventInternal(UUID shipmentId, EventType eventType, String location, LocalDateTime occurredAt) {
         Shipment shipment = shipmentRepository.findById(shipmentId)
                 .orElseThrow(() -> new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
 
@@ -134,6 +138,7 @@ public class TrackingService implements TrackingUseCase {
                 .orElseThrow(() -> new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
     }
 // Método auxiliar para mantener compatibilidad con el listener y llamadas desde strings
+    @Transactional
     public TrackingEvent registerEvent(UUID shipmentId, String eventTypeStr, String location, LocalDateTime occurredAt) {
         EventType eventType;
         try {
@@ -141,6 +146,6 @@ public class TrackingService implements TrackingUseCase {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid event type: " + eventTypeStr);
         }
-        return registerEvent(shipmentId, eventType, location, occurredAt);
+        return registerEventInternal(shipmentId, eventType, location, occurredAt);
     }
 }

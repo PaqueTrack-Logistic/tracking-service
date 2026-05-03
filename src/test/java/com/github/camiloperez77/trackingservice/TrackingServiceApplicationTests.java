@@ -10,7 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class trackingserviceApplicationTests {
+class TrackingServiceApplicationTests {
 
     @TestConfiguration
     static class MockConfig {

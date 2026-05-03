@@ -156,8 +156,9 @@ class TrackingServiceApplicationTest {
     @DisplayName("registerEvent unknown event type throws IllegalArgumentException")
     void registerEvent_unknownEventType_throwsIllegalArgument() {
         UUID shipmentId = UUID.randomUUID();
+                LocalDateTime now = LocalDateTime.now();
 
-        assertThatThrownBy(() -> trackingService.registerEvent(shipmentId, "UNKNOWN_TYPE", "Somewhere", LocalDateTime.now()))
+                assertThatThrownBy(() -> trackingService.registerEvent(shipmentId, "UNKNOWN_TYPE", "Somewhere", now))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Invalid event type");
     }

@@ -61,7 +61,8 @@ class TrackingServiceIdempotencyTest {
 
         service.initializeShipment(UUID.randomUUID(), "TRK-001");
 
-        assertThrows(IllegalStateException.class, () -> service.initializeShipment(UUID.randomUUID(), "TRK-001"));
+        UUID anotherShipmentId = UUID.randomUUID();
+        assertThrows(IllegalStateException.class, () -> service.initializeShipment(anotherShipmentId, "TRK-001"));
     }
 
     private static class InMemoryShipmentRepository implements ShipmentRepositoryPort {
