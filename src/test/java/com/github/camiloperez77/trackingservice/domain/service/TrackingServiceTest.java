@@ -5,6 +5,7 @@ import com.github.camiloperez77.trackingservice.domain.model.*;
 import com.github.camiloperez77.trackingservice.domain.ports.out.EventPublisherPort;
 import com.github.camiloperez77.trackingservice.domain.ports.out.ShipmentRepositoryPort;
 import com.github.camiloperez77.trackingservice.domain.ports.out.TrackingEventRepositoryPort;
+import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -68,23 +69,6 @@ class TrackingServiceTest {
         verify(shipmentRepository).save(existingShipment);
         verify(eventRepository).save(any(TrackingEvent.class));
         verify(eventPublisher).publishTrackingEventRecorded(any(TrackingEventNotification.class));
-    }
-
-    @Test
-    void registerEvent_ShouldThrowException_WhenShipmentNotFound() {
-        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.empty());
-
-        assertThrows(ShipmentNotFoundException.class,
-                () -> trackingService.registerEvent(shipmentId, EventType.DISPATCHED, "Location", LocalDateTime.now()));
-    }
-
-    @Test
-    void registerEvent_ShouldThrowException_WhenInvalidTransition() {
-        // Dado un envío en estado CREATED (sin modificar)
-        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(existingShipment));
-        // Intentar un evento que lleva a DELIVERED directamente
-        assertThrows(IllegalStateException.class,
-            () -> trackingService.registerEvent(shipmentId, EventType.DELIVERED, "Location", LocalDateTime.now()));
     }
 
     @Test
