@@ -47,4 +47,20 @@ class ShipmentStatusBranchesTest {
 	void outForDelivery_invalidToInTransit() {
 		assertThat(ShipmentStatus.OUT_FOR_DELIVERY.canTransitionTo(ShipmentStatus.IN_TRANSIT)).isFalse();
 	}
+
+	// Segundo operando del OR en los casos CREATED e IN_TRANSIT (primer operando falso)
+	@Test
+	void created_toAtTransitPoint_isValid() {
+		assertThat(ShipmentStatus.CREATED.canTransitionTo(ShipmentStatus.AT_TRANSIT_POINT)).isTrue();
+	}
+
+	@Test
+	void inTransit_toAtTransitPoint_isValid() {
+		assertThat(ShipmentStatus.IN_TRANSIT.canTransitionTo(ShipmentStatus.AT_TRANSIT_POINT)).isTrue();
+	}
+
+	@Test
+	void inTransit_selfTransition_isInvalid() {
+		assertThat(ShipmentStatus.IN_TRANSIT.canTransitionTo(ShipmentStatus.IN_TRANSIT)).isFalse();
+	}
 }
