@@ -1,5 +1,6 @@
 package com.github.camiloperez77.trackingservice.infrastructure.persistence.adapter;
 
+import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
 import com.github.camiloperez77.trackingservice.domain.ports.out.TrackingEventRepositoryPort;
 import com.github.camiloperez77.trackingservice.infrastructure.persistence.entity.TrackingEventEntity;
@@ -41,7 +42,7 @@ public class TrackingEventRepositoryAdapter implements TrackingEventRepositoryPo
 
     @Override
     public Optional<TrackingEvent> findLastDeliveredEventByShipmentId(UUID shipmentId) {
-        return jpaRepository.findFirstByShipmentIdAndEventTypeOrderByOccurredAtDesc(shipmentId, "DELIVERED")
+        return jpaRepository.findFirstByShipmentIdAndEventTypeOrderByOccurredAtDesc(shipmentId, EventType.DELIVERED)
                 .map(mapper::toDomain);
     }
 
