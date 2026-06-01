@@ -5,7 +5,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.List;
 
 public interface ShipmentJpaRepository extends JpaRepository<ShipmentEntity, UUID> {
 	Optional<ShipmentEntity> findByTrackingId(String trackingId);
+	List<ShipmentEntity> findByStatusIn(List<String> statuses);
 }

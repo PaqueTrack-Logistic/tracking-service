@@ -2,11 +2,13 @@ package com.github.camiloperez77.trackingservice.domain.service;
 
 
 import com.github.camiloperez77.trackingservice.domain.exception.ShipmentNotFoundException;
+import com.github.camiloperez77.trackingservice.domain.model.DelayedShipment;
 import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
 import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEventNotification;
+import com.github.camiloperez77.trackingservice.domain.model.TransitTime;
 import com.github.camiloperez77.trackingservice.domain.ports.in.TrackingUseCase;
 import com.github.camiloperez77.trackingservice.domain.ports.out.ShipmentRepositoryPort;
 import com.github.camiloperez77.trackingservice.domain.ports.out.TrackingEventRepositoryPort;
@@ -19,7 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -147,5 +153,65 @@ public class TrackingService implements TrackingUseCase {
             throw new IllegalArgumentException("Invalid event type: " + eventTypeStr);
         }
         return registerEventInternal(shipmentId, eventType, location, occurredAt);
+    }
+
+    @Override
+    public TransitTime getTransitTime(UUID shipmentId) {
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new ShipmentNotFoundException("Shipment not found with id: " + shipmentId));
+        
+        LocalDateTime createdAt = eventRepository.findFirstEventByShipmentIdOrderByOccurredAtAsc(shipmentId)
+                .map(TrackingEvent::getOccurredAt)
+                .orElse(null);
+        
+        LocalDateTime deliveredAt = eventRepository.findLastDeliveredEventByShipmentId(shipmentId)
+                .map(TrackingEvent::getOccurredAt)
+                .orElse(null);
+        
+        Double transitTimeHours = null;
+        if (deliveredAt != null && createdAt != null) {
+            transitTimeHours = java.time.Duration.between(createdAt, deliveredAt).toMinutes() / 60.0;
+        } else if (createdAt != null) {
+            // Si aún no entregado, calculamos tiempo hasta ahora (opcional)
+            // transitTimeHours = java.time.Duration.between(createdAt, LocalDateTime.now()).toMinutes() / 60.0;
+        }
+        
+        return new TransitTime(
+            shipment.getId(),
+            shipment.getTrackingId(),
+            shipment.getStatus(),
+            createdAt,
+            deliveredAt,
+            transitTimeHours
+        );
+    }
+
+    @Override
+    public List<DelayedShipment> getDelayedShipments(long thresholdHours) {
+    List<Shipment> shipments = shipmentRepository.findByStatusIn(
+    List.of(ShipmentStatus.IN_TRANSIT, ShipmentStatus.OUT_FOR_DELIVERY)
+    );
+    
+    return shipments.stream()
+        .map(shipment -> {
+            Optional<TrackingEvent> lastEvent = eventRepository.findLastEventByShipmentId(shipment.getId());
+            if (lastEvent.isEmpty()) return null;
+            
+            LocalDateTime lastEventTime = lastEvent.get().getOccurredAt();
+            long hoursSinceLastEvent = java.time.Duration.between(lastEventTime, LocalDateTime.now()).toHours();
+            
+            if (hoursSinceLastEvent >= thresholdHours) {
+                return new DelayedShipment(
+                    shipment.getId(),
+                    shipment.getTrackingId(),
+                    shipment.getStatus(),
+                    lastEventTime,
+                    hoursSinceLastEvent
+                );
+            }
+            return null;
+        })
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
     }
 }
