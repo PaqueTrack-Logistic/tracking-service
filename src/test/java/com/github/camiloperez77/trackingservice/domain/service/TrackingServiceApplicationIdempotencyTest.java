@@ -1,6 +1,7 @@
 package com.github.camiloperez77.trackingservice.domain.service;
 
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
+import com.github.camiloperez77.trackingservice.domain.model.ShipmentStatus;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEventNotification;
 import com.github.camiloperez77.trackingservice.domain.ports.out.EventPublisherPort;
@@ -85,9 +86,17 @@ class TrackingServiceIdempotencyTest {
                     .filter(shipment -> Objects.equals(shipment.getTrackingId(), trackingId))
                     .findFirst();
         }
+
+        @Override
+        public List<Shipment> findByStatusIn(List<ShipmentStatus> statuses) {
+            return storageById.values().stream()
+                    .filter(shipment -> statuses.contains(shipment.getStatus()))
+                    .toList();
+        }
     }
 
-    private static class NoOpTrackingEventRepository implements TrackingEventRepositoryPort { @Override
+    private static class NoOpTrackingEventRepository implements TrackingEventRepositoryPort {
+        @Override
         public TrackingEvent save(TrackingEvent event) {
             return event;
         }
@@ -96,6 +105,26 @@ class TrackingServiceIdempotencyTest {
         public Page<TrackingEvent> findByShipmentIdOrderByOccurredAtAsc(UUID shipmentId, Pageable pageable) {
             // Retorna una página vacía (sin datos, sin contenido)
             return Page.empty(pageable);
+        }
+
+        @Override
+        public Optional<TrackingEvent> findFirstEventByShipmentIdOrderByOccurredAtAsc(UUID shipmentId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<TrackingEvent> findLastDeliveredEventByShipmentId(UUID shipmentId) {
+            return Optional.empty();
+        }
+
+        @Override
+        public List<TrackingEvent> findLastEventByShipmentIdGrouped() {
+            return List.of();
+        }
+
+        @Override
+        public Optional<TrackingEvent> findLastEventByShipmentId(UUID shipmentId) {
+            return Optional.empty();
         }
     }
 

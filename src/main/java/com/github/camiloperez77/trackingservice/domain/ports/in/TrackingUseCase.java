@@ -1,10 +1,14 @@
 package com.github.camiloperez77.trackingservice.domain.ports.in;
 
+import com.github.camiloperez77.trackingservice.domain.model.DelayedShipment;
 import com.github.camiloperez77.trackingservice.domain.model.EventType;
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
+import com.github.camiloperez77.trackingservice.domain.model.TransitTime;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -14,4 +18,6 @@ public interface TrackingUseCase {
     TrackingEvent registerEvent(UUID shipmentId, String eventType, String location, LocalDateTime occurredAt);
     Page<TrackingEvent> getHistory(UUID shipmentId, Pageable pageable);
     Shipment getCurrentStatus(UUID shipmentId);
+    TransitTime getTransitTime(UUID shipmentId);
+    List<DelayedShipment> getDelayedShipments(long thresholdHours);
 }

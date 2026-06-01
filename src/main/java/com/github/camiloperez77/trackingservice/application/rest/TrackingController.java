@@ -2,9 +2,12 @@ package com.github.camiloperez77.trackingservice.application.rest;
 
 import com.github.camiloperez77.trackingservice.domain.model.Shipment;
 import com.github.camiloperez77.trackingservice.domain.model.TrackingEvent;
+import com.github.camiloperez77.trackingservice.domain.model.TransitTime;
 import com.github.camiloperez77.trackingservice.domain.ports.in.TrackingUseCase;
 import com.github.camiloperez77.trackingservice.infrastructure.messaging.config.RabbitMQConfig;
 import com.github.camiloperez77.trackingservice.infrastructure.messaging.dto.TrackingEventRequest;
+import com.github.camiloperez77.trackingservice.domain.model.DelayedShipment;
+import com.github.camiloperez77.trackingservice.domain.model.DelayedShipmentResponse;
 import com.github.camiloperez77.trackingservice.domain.model.EventType;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +28,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/tracking")
@@ -134,4 +139,43 @@ public class TrackingController {
     record TrackingEventResponse(UUID id, String eventType, String statusBefore,
                                  String statusAfter, String location, LocalDateTime occurredAt) {}
     record ShipmentStatusResponse(String status) {}
+
+	@GetMapping("/{shipmentId}/transit-time")
+	@Operation(summary = "Obtener tiempo de tránsito", description = "Calcula el tiempo entre la creación y la entrega del envío")
+	@ApiResponses(value = {
+	@ApiResponse(responseCode = "200", description = "Tiempo de tránsito calculado exitosamente"),
+	@ApiResponse(responseCode = "404", description = "Shipment no encontrado")
+	})
+	public ResponseEntity<TransitTimeResponse> getTransitTime(@PathVariable UUID shipmentId) {
+	TransitTime transitTime = trackingUseCase.getTransitTime(shipmentId);
+	TransitTimeResponse response = new TransitTimeResponse(
+		transitTime.shipmentId(),
+		transitTime.trackingId(),
+		transitTime.status().name(),
+		transitTime.createdAt(),
+		transitTime.deliveredAt(),
+		transitTime.transitTimeHours()
+	);
+	return ResponseEntity.ok(response);
+	}
+
+        @GetMapping("/delayed")
+        @Operation(summary = "Obtener envíos retrasados", description = "Lista envíos que llevan más de N horas en estado IN_TRANSIT u OUT_FOR_DELIVERY")
+        @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Lista de envíos retrasados obtenida exitosamente")
+        })
+        public ResponseEntity<List<DelayedShipmentResponse>> getDelayedShipments(
+                @RequestParam(defaultValue = "48") long thresholdHours) {
+        List<DelayedShipment> delayed = trackingUseCase.getDelayedShipments(thresholdHours);
+        List<DelayedShipmentResponse> response = delayed.stream()
+                .map(d -> new DelayedShipmentResponse(
+                d.shipmentId(),
+                d.trackingId(),
+                d.status().name(),
+                d.lastEventTime(),
+                d.hoursInCurrentStatus()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+        }
 }
