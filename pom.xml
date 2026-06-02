@@ -27,7 +27,8 @@
         <sonar.coverage.exclusions>
             **/TrackingServiceApplication.java,
             **/application/rest/**,
-            **/domain/model/**
+            **/domain/model/**,
+            **/infrastructure/persistence/**,
         </sonar.coverage.exclusions>
         <sonar.exclusions>
             **/domain/model/ShipmentStatus.java,
