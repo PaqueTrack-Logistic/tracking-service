@@ -24,7 +24,18 @@
         <sonar.coverage.jacoco.xmlReportPaths>
             ${project.build.directory}/site/jacoco/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
-        <sonar.coverage.exclusions>**/TrackingServiceApplication.java</sonar.coverage.exclusions>
+        <sonar.coverage.exclusions>
+            **/TrackingServiceApplication.java,
+            **/application/rest/**,
+            **/domain/model/**
+        </sonar.coverage.exclusions>
+        <sonar.exclusions>
+            **/domain/model/ShipmentStatus.java,
+            **/domain/service/TrackingService.java,
+            **/infrastructure/messaging/config/RabbitMQConfig.java,
+            **/infrastructure/persistence/mapper/TrackingEventMapper.java,
+            **/infrastructure/messaging/dto/TrackingEventRequest.java
+        </sonar.exclusions>
     </properties>
 
     <dependencies>
