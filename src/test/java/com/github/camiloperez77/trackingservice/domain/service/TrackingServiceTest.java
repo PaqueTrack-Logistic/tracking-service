@@ -47,6 +47,18 @@ class TrackingServiceTest {
         existingShipment = new Shipment(shipmentId, "TRK-001", ShipmentStatus.CREATED);
     }
 
+    private TrackingEvent mockTrackingEvent(LocalDateTime occurredAt) {
+        return TrackingEvent.builder()
+                .id(UUID.randomUUID())
+                .shipmentId(shipmentId)
+                .eventType(EventType.DISPATCHED)
+                .statusBefore(ShipmentStatus.CREATED)
+                .statusAfter(ShipmentStatus.IN_TRANSIT)
+                .location("Warehouse A")
+                .occurredAt(occurredAt)
+                .build();
+    }
+
     @Test
     void registerEvent_ShouldChangeStatusAndSaveEvent_WhenValid() {
         // given
@@ -99,5 +111,18 @@ class TrackingServiceTest {
                 shipment.getTrackingId().equals("TRK-NEW") &&
                 shipment.getStatus() == ShipmentStatus.CREATED
         ));
+    }
+
+    @Test
+    void getTransitTime_ShouldReturnCorrectHours_WhenShipmentDelivered() {
+        when(shipmentRepository.findById(shipmentId)).thenReturn(Optional.of(existingShipment));
+        when(eventRepository.findFirstEventByShipmentIdOrderByOccurredAtAsc(shipmentId))
+            .thenReturn(Optional.of(mockTrackingEvent(LocalDateTime.of(2025,5,1,10,0))));
+        when(eventRepository.findLastDeliveredEventByShipmentId(shipmentId))
+            .thenReturn(Optional.of(mockTrackingEvent(LocalDateTime.of(2025,5,3,14,30))));
+        
+        TransitTime result = trackingService.getTransitTime(shipmentId);
+        
+        assertEquals(52.5, result.transitTimeHours());
     }
 }

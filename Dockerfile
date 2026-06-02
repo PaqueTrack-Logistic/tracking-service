@@ -29,11 +29,15 @@ RUN if ! id -u appuser >/dev/null 2>&1; then useradd -m appuser; fi \
 USER appuser
 
 # Health check
+
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD java -jar app.jar --health-check || exit 1
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+   # HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+   # CMD java -jar app.jar --health-check || exit 1
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --server.port=${PORT:-8080}"]
